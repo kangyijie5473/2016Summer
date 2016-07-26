@@ -14,94 +14,26 @@
 #include<dirent.h>
 #include<linux/limits.h>
 #include<string.h>
-#include <termio.h>
+#include<sys/wait.h>
 #define CMD_NOMAL 1
 #define CMD_REOUT 2
 #define CMD_REIN 4
 #define CMD_PIPE 8
 #define CMD_BKGRD 17
 
-typedef struct commandName{
-    char name[25];
-    struct commandName *next;
-}cmdname;
-
 char my_argv[10][256];
 
-int getch(void)
-{
-         struct termios tm, tm_old;
-         int fd = 0, ch;
-     
-         if (tcgetattr(fd, &tm) < 0) {//保存现在的终端设置
-                                                return -1;
-                                           }
-     
-         tm_old = tm;
-         cfmakeraw(&tm);//更改终端设置为原始模式，该模式下所有的输入数据以字节为单位被处理
-         if (tcsetattr(fd, TCSANOW, &tm) < 0) {//设置上更改之后的设置
-                                                         return -1;
-                                                    }
-     
-         ch = getchar();
-         if (tcsetattr(fd, TCSANOW, &tm_old) < 0) {//更改设置为最初的样子
-                                                             return -1;
-                                                        }
-        
-         return ch;
-}
+void get_input(char *buf);
+void display_$(const char *path);
+int  explain_input(char *buf);
+void testPrint(int len);
+int  do_cmd(int flag, int len);
 
 void display_$(const char *path)
 {
-    printf("kangkang@ubuntu16.04:%s$ ",path);
+    printf("\033[01;32mkangkang@ubuntu16.04:\033[00m\033[01;34m%s\033[00m$ ",path);
 }
 
-cmdname *readCmdName(void)
-{
-    cmdname *pHead,*pEnd,*pNew;
-    DIR *dir;
-    struct dirent *ptr;
-    char path[] = "/bin";
-    pNew =(cmdname *)malloc(sizeof(cmdname));
-    pEnd = pHead = pNew;
-    pNew -> next = NULL;
-    if((dir = opendir(path)) == NULL)
-    {
-        perror("opendir");
-        return NULL; 
-    }
-    chdir(path);
-    while((ptr = readdir(dir)) != NULL)
-    {
-        if(ptr -> d_name[0] == '.')
-        continue;
-        pNew = (cmdname *)malloc(sizeof(cmdname));
-        pEnd -> next = pNew;
-        pEnd = pEnd -> next;
-        strcpy(pNew -> name,ptr -> d_name);
-        pNew -> next = NULL;
-    }
-    return pHead;
-}
-/*
-void testPrint(cmdname *pHead)
-{
-    cmdname *pTemp = pHead -> next;
-    while(pTemp != NULL)
-    {
-    puts(pTemp -> name);
-    pTemp = pTemp -> next;
-    }
-}
-
-void get_input(char *buf cmdname *pHead)
-{
-    cmdname *pTemp ;
-    int ch,len = 0;
-    if(( buf[len++] = ch = getch()) == '\t')
-    {
-*/
-    
 void get_input(char *buf)
 {
     int ch,len = 0;
@@ -155,8 +87,8 @@ int explian_option(int len)
         switch(my_argv[i][0])
         {
             case '>':flag += CMD_REOUT;q++;break;
-            case '<':flag += CMD_REIN;break;
-            case '|':flag += CMD_PIPE;break;
+            case '<':flag += CMD_REIN;q++;break;
+            case '|':flag += CMD_PIPE;q++;break;
         }
     }
     if( !strcmp(my_argv[len - 1],"&"))
@@ -166,58 +98,123 @@ int explian_option(int len)
     if(q > 1)
     {
         printf("my shell doesn't support many options\n");
-        exit(1);
+        return 0;
     }
     return flag;
 }
 
-void do_cmd(int flag, int len)
+int  do_cmd(int flag, int len)
+
 {
-    // char cmd[256] = "/bin";
-    //strcat(cmd,my_argv[0]);
     char *argvv[len];
-    int i ;
+    int i = 0,var = 0, fd,j;
     pid_t pid;
     for(i = 0;i < len; i++)
-    argvv[i] = (char *)my_argv[i];
+    {
+        argvv[i] = (char *)my_argv[i];
+    }
+    i = 0;
+    argvv[len] = NULL;
     pid = fork();
+    wait(&var);
     switch(flag)
     {
         case CMD_NOMAL:
             if(pid == 0)
             {
-                execvp(my_argv[0],argvv);
+                if( -1 == execvp(argvv[0],argvv))
+                return -1;
                 exit(0);
             }
-            exit(0);
+            break;
+        case CMD_REOUT:
+            if(pid == 0)
+            {
+                while (strcmp(argvv[i],">") !=0)
+                i++;
+                argvv[i] = NULL;
+                fd = open(argvv[i+1],O_RDWR|O_CREAT,S_IRWXU);
+                dup2(fd,1);
+                if( -1 == execvp(argvv[0],argvv))
+                return -1;
+                exit(0);
+            }
+            break;
+        case CMD_REIN:
+            if(pid == 0)
+            {
+                while (strcmp(argvv[i],"<") !=0)
+                i++;
+                argvv[i] = NULL;
+                fd = open(argvv[i+1],O_RDONLY);
+                dup2(fd,0);
+                if( -1 == execvp(argvv[0],argvv))
+                return -1;
+                exit(0);
+            }
+            break;
+        case CMD_PIPE:
+            if(pid == 0)
+            {
+                int fd2;
+                char *argv2[len];
+                while (strcmp(argvv[i],"|") !=0)
+                i++;
+                argvv[i] = NULL;
+                for( j = 0; i < len; j++)
+                {
+                    argv2[j] = argvv[++i];
+                }
+                argv2[j] = NULL;
+                if((fd2 = fork()) == 0)
+                {
+                    fd2 = open("/tmp/secret",O_RDWR|O_CREAT,S_IRWXU);
+                    dup2(fd2,1);
+                    if(-1 == (execvp(argvv[0],argvv)))
+                    return -1;
+                    exit(0);
+                }
+                fd2 = open("/tmp/secret",O_RDWR);
+                dup2(fd2,0);
+                if(-1 == execvp(argv2[0],argv2))
+                return -1;
+                remove("/tmp/secret");
+                exit(0);
+            }
+            break;
+        default: break;
     }
+    if(flag == CMD_BKGRD)
+    {
+        printf("process id %d\n",pid);
+        return;
+    }
+    if(waitpid(pid,&var,0) == -1)
+    printf("wait for child process error\n");
+
 }
+
                         
-
-
-
 
 
 int main(int argc, char *argv[])
 {
     char path[PATH_MAX + 1],*buf;
     int len,flag;
-    cmdname *pHead;
-    
     buf = (char *)malloc(sizeof(char ) * 256);
-
-    //getcwd(path,512);
-   // pHead = readCmdName();
-   // chdir(path);
-
+    getcwd(path,512);
     while(1)
     {
     memset(buf, 0, 256);
     display_$(path);
     get_input(buf);
-    len = explain_input(buf);
+    if(strcmp(buf,"\n") == 0)
+    continue;
+    if((len = explain_input(buf)) == 0)
+        continue;
     flag = explian_option(len);
-    do_cmd(flag,len);
+    if( -1 ==do_cmd(flag,len))
+        printf("command is error\n");
     }
     
 }
