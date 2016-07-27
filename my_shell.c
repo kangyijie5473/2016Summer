@@ -156,17 +156,19 @@ int  do_cmd(int flag, int len)
         case CMD_PIPE:
             if(pid == 0)
             {
-                int fd2;
+                int fd2,g;
                 char *argv2[len];
                 while (strcmp(argvv[i],"|") !=0)
+                {
                 i++;
+                }
                 argvv[i] = NULL;
                 for( j = 0; i < len; j++)
                 {
                     argv2[j] = argvv[++i];
                 }
                 argv2[j] = NULL;
-                if((fd2 = fork()) == 0)
+                if((g = fork()) == 0)
                 {
                     fd2 = open("/tmp/secret",O_RDWR|O_CREAT,S_IRWXU);
                     dup2(fd2,1);
@@ -184,14 +186,13 @@ int  do_cmd(int flag, int len)
             break;
         default: break;
     }
+    
     if(flag == CMD_BKGRD)
     {
         printf("process id %d\n",pid);
         return;
     }
-    if(waitpid(pid,&var,0) == -1)
-    printf("wait for child process error\n");
-
+    
 }
 
                         
@@ -210,6 +211,8 @@ int main(int argc, char *argv[])
     get_input(buf);
     if(strcmp(buf,"\n") == 0)
     continue;
+    if(strcmp(buf,"quit\n")  == 0)
+        exit(0);
     if((len = explain_input(buf)) == 0)
         continue;
     flag = explian_option(len);
