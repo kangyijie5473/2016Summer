@@ -15,12 +15,15 @@
 #include<linux/limits.h>
 #include<string.h>
 #include<sys/wait.h>
+#include<signal.h>
 #define CMD_NOMAL 1
 #define CMD_REOUT 2
 #define CMD_REIN 4
 #define CMD_PIPE 8
 #define CMD_BKGRD 17
-
+#define CMD_CD 7
+#define CMD_PWD 13
+#define CMD_HISTORY 15
 char my_argv[10][256];
 
 void get_input(char *buf);
@@ -70,12 +73,11 @@ int  explain_input(char *buf)
     return j;
 }
 
-void testPrint(int len)
+void fun(int  a)
 {
-    int i ;
-    for(i = 0;i < len; i++)
-    printf("argv[%d] =%s",i,my_argv[i]);
 }
+
+
 
 int explian_option(int len)
 {
@@ -106,7 +108,7 @@ int explian_option(int len)
 int  do_cmd(int flag, int len)
 
 {
-    char *argvv[len];
+    char *argvv[len], path[PATH_MAX];
     int i = 0,var = 0, fd,j;
     pid_t pid;
     for(i = 0;i < len; i++)
@@ -115,6 +117,16 @@ int  do_cmd(int flag, int len)
     }
     i = 0;
     argvv[len] = NULL;
+    if(strcmp(argvv[0], "cd") == 0)
+    {
+        chdir(argvv[1]);
+        return CMD_CD;
+    }
+    if(strcmp(argvv[0], "history") == 0){
+        argvv[0] = "less";
+        argvv[1] = "/home/kangyijie/.bash_history";
+        flag = CMD_HISTORY;
+    }
     pid = fork();
     wait(&var);
     switch(flag)
@@ -184,14 +196,23 @@ int  do_cmd(int flag, int len)
                 exit(0);
             }
             break;
+        case CMD_HISTORY:
+            if(pid == 0)
+            {
+                if(-1 == execvp(argvv[0], argvv))
+                return -1;
+                exit(0);
+            }
+            break;
         default: break;
     }
     
     if(flag == CMD_BKGRD)
     {
         printf("process id %d\n",pid);
-        return;
+        return 0;
     }
+    
     
 }
 
@@ -201,23 +222,25 @@ int  do_cmd(int flag, int len)
 int main(int argc, char *argv[])
 {
     char path[PATH_MAX + 1],*buf;
-    int len,flag;
+    int len,flag,tem;
     buf = (char *)malloc(sizeof(char ) * 256);
-    getcwd(path,512);
     while(1)
     {
+    getcwd(path,512);
     memset(buf, 0, 256);
     display_$(path);
+    signal(SIGINT, fun);
     get_input(buf);
     if(strcmp(buf,"\n") == 0)
     continue;
-    if(strcmp(buf,"quit\n")  == 0)
+    if(strcmp(buf,"quit\n" )  == 0 || strcmp(buf,"exit\n" )  == 0)
         exit(0);
     if((len = explain_input(buf)) == 0)
         continue;
     flag = explian_option(len);
-    if( -1 ==do_cmd(flag,len))
+    if( (tem =do_cmd(flag,len)) == -1)
         printf("command is error\n");
     }
+
     
 }
