@@ -12,12 +12,15 @@
 #include<string.h>
 #include<netinet/in.h>
 #include<arpa/inet.h>
+#include<unistd.h>
+
 #define BUFFERSIZE 1500
 
 int main(void)
 {
-    int socket_fd;
-    char buffer[32] = "127.0.0.1", send_buffer[BUFFERSIZE];
+    int socket_fd,temp;
+    char buffer[32] = "123.206.65.225", send_buffer[BUFFERSIZE], recv_buffer[BUFFERSIZE];
+    //char buffer[32] = "127.0.0.1", send_buffer[BUFFERSIZE], recv_buffer[BUFFERSIZE];
     unsigned long int address = 0;
     struct sockaddr_in server_addr;
     struct in_addr in;
@@ -33,8 +36,16 @@ int main(void)
 
     inet_aton(buffer, &server_addr.sin_addr);
 
-    connect(socket_fd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr_in));
+    if(connect(socket_fd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr_in)) < 0){
+        perror("connect");
+    }
     
-    send(socket_fd, send_buffer,BUFFERSIZE, 0);
+    if((temp =send(socket_fd, send_buffer,BUFFERSIZE, 0)) < 0){
+        perror("send");
+    }
+    //recv(socket_fd, recv_buffer, sizeof(recv_buffer), 0);
+    //puts(recv_buffer);
+        //printf("%d\n",temp);
+    close(socket_fd);
 }
 
