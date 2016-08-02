@@ -41,5 +41,5 @@ typedef struct Message{
     char text[TEXTBUFFER];
 }message;
 
-void get_time_message(struct messsage *temp)
+void get_time_message(struct messsage *temp);
 #endif
