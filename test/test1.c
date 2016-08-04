@@ -9,6 +9,7 @@
 #include<stdlib.h>
 #include<gtk/gtk.h>
 
+void chat_all1(GtkWidget *widget , void *pointer);
 void test(GtkWidget *widget,gpointer a );
 void sign_up(GtkWidget *widget1, void *pointer);
 void ftp(GtkWidget *widget1, void *pointer);
@@ -19,13 +20,13 @@ void show(GtkWidget *a, void *p)
     gtk_widget_show(p);
     //gtk_widget_destroy(window_test);
 }
-
+/*
 void close1(GtkWidget *a, void *p)
 {
     gtk_widget_show(p);
     gtk_widget_destroy(window_test);
 }
-
+*/
 void close2(GtkWidget *w, void *p)
 {
     gtk_widget_destroy((GtkWidget *)p);
@@ -55,7 +56,7 @@ void sign_up(GtkWidget *widget1, void *pointer)
     button_yes = gtk_button_new_with_label("确认");
     button_no = gtk_button_new_with_label("取消");
 
-    entry_user = gtk_entry_new();
+    entry_user = gtk_entry_new_with_max_length(20);
     entry_passwd = gtk_entry_new();
     gtk_entry_set_visibility(GTK_ENTRY(entry_passwd),FALSE);
     entry_passwd2 = gtk_entry_new();
@@ -63,7 +64,7 @@ void sign_up(GtkWidget *widget1, void *pointer)
 
     g_signal_connect(G_OBJECT(button_yes),"clicked",G_CALLBACK(gtk_main_quit),NULL); 
     g_signal_connect(G_OBJECT(button_no),"clicked",G_CALLBACK(close2),window);
-    g_signal_connect(G_OBJECT(window),"destroy", G_CALLBACK(show),pointer)
+    g_signal_connect(G_OBJECT(window),"destroy", G_CALLBACK(show),pointer);
 
     sep = gtk_hseparator_new();
     box = gtk_vbox_new(FALSE, 0);
@@ -194,11 +195,11 @@ int main(int argc, char *argv[])
     gtk_container_add(GTK_CONTAINER(box3),button_signup);
     gtk_container_add(GTK_CONTAINER(box3),button_signin);
 
-    g_signal_connect(G_OBJECT(button_signin),"clicked",G_CALLBACK(feather),window); 
+    g_signal_connect(G_OBJECT(button_signin),"clicked",G_CALLBACK(feather),NULL); 
     //g_signal_connect_swapped(G_OBJECT(button_signin),"clicked",G_CALLBACK(close),&window); 
-    g_signal_connect(G_OBJECT(button_signup),"clicked",G_CALLBACK(sign_up),window); 
+   // g_signal_connect(G_OBJECT(button_signup),"clicked",G_CALLBACK(sign_up),window); 
    // g_signal_connect(G_OBJECT(button_signin),"clicked",G_CALLBACK(test),NULL); // 将退出信号连接
-    g_signal_connect(G_OBJECT(window),"delete_event",G_CALLBACK(test),NULL); // 
+   // g_signal_connect(G_OBJECT(window),"delete_event",G_CALLBACK(test),NULL); // 
 
 
 
@@ -243,6 +244,7 @@ void feather(GtkWidget widget1, void *pointer)
     gtk_box_pack_start(GTK_BOX(box),label2,FALSE,FALSE,10);
 
     g_signal_connect(G_OBJECT(button3),"clicked",G_CALLBACK(ftp),NULL);
+    g_signal_connect(G_OBJECT(button1),"clicked",G_CALLBACK(chat_all1),NULL);
     //gtk_window_set_destroy_with_parent(window,FALSE);
     ////g_signal_connect_swapped(G_OBJECT,"clicked",G_CALLBACK(gtk_))
     gtk_container_add(GTK_CONTAINER(window), box);
@@ -293,6 +295,62 @@ void ftp(GtkWidget *widget1, void *pointer)
     gtk_box_pack_start(GTK_BOX(box2),label2,FALSE,FALSE,10);
     gtk_box_pack_start(GTK_BOX(box2),picture,FALSE,FALSE,10);
     gtk_box_pack_start(GTK_BOX(box),box2,FALSE,FALSE,10);
+
+    gtk_container_add(GTK_CONTAINER(window), box);
+    gtk_widget_show_all(window);
+}
+
+void chat_all1(GtkWidget *widget , void *pointer)
+{
+    GtkWidget *window,*button_history,*button_yes,*button_fresh;
+    GtkWidget *box,*sep,*label,*picture,*box4,*box2,*box3;
+    GtkWidget *box5, *box6;
+    GtkWidget *entry;
+    GtkWidget *window_text;
+
+    button_yes = gtk_button_new_with_label("确认");
+    button_history = gtk_button_new_with_label("历史记录");
+    button_fresh  = gtk_button_new_with_label("刷新");
+
+    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(window),"公共聊天室");
+    gtk_widget_set_usize(GTK_WIDGET(window),800,800);
+    gtk_window_set_resizable(GTK_WINDOW(window),FALSE);
+    gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
+    gtk_container_set_border_width(GTK_CONTAINER(window),40);
+
+    box = gtk_vbox_new(FALSE, 0); 
+    box2 = gtk_vbox_new(FALSE, 0);
+    box3 = gtk_hbox_new(FALSE, 0);
+    box4 = gtk_hbox_new(FALSE, 0);
+    box5 = gtk_vbox_new(FALSE, 0);
+    box6 = gtk_hbox_new(FALSE, 0);
+    sep = gtk_hseparator_new();
+    label = gtk_label_new("享受free的聊天吧！");
+    picture = gtk_image_new_from_file("linux4.jpg");
+    entry = gtk_entry_new_with_max_length(256);
+    window_text = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(window_text), GTK_POLICY_AUTOMATIC,GTK_POLICY_AUTOMATIC);
+
+
+    gtk_box_pack_start(GTK_BOX(box),box3,FALSE,FALSE,10);
+    gtk_box_pack_start(GTK_BOX(box),box4,FALSE,FALSE,10);
+    gtk_box_pack_start(GTK_BOX(box),box6,FALSE,FALSE,10);
+    
+    gtk_box_pack_start(GTK_BOX(box2),label,FALSE,FALSE,10);
+    gtk_box_pack_start(GTK_BOX(box2),sep,FALSE,FALSE,10);
+    
+    gtk_box_pack_start(GTK_BOX(box3),box2,FALSE,FALSE,10);
+    gtk_box_pack_start(GTK_BOX(box3),picture,FALSE,FALSE,10);
+    
+    gtk_box_pack_start(GTK_BOX(box4),window_text,FALSE,FALSE,10);
+    gtk_box_pack_start(GTK_BOX(box4),box5,FALSE,FALSE,10);
+    
+    gtk_box_pack_start(GTK_BOX(box5),button_history,FALSE,FALSE,10);
+    gtk_box_pack_start(GTK_BOX(box5),button_fresh,FALSE,FALSE,10);
+    
+    gtk_box_pack_start(GTK_BOX(box6),entry,FALSE,FALSE,10);
+    gtk_box_pack_start(GTK_BOX(box6),button_yes,FALSE,FALSE,10);
 
     gtk_container_add(GTK_CONTAINER(window), box);
     gtk_widget_show_all(window);
