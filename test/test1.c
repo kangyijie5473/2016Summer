@@ -19,60 +19,13 @@
 #include<pthread.h>
 #include<wait.h>
 #include<fcntl.h>
-
-#define BUFFERSIZE 256
-#define TEXTBUFFER   256
-#define ENTRYBUFFER  20
-
-#define _SUCCESS  0
-#define _FAIL     -1
-
-#define ONLINE  10
-#define ABSENCS 11
-#define BAN     12
-
-#define NORMAL  13
-#define MANAGER 14
-
-#define SIGNUP 50
-#define SIGNIN 51
-
-#define CHAT_ALL 52
-#define CHAT_ONE 53
-#define FTP      54
-#define USRMANGE 55
-#define UPFILE   57
-#define EOR_NAME 70
-#define EOR_PAWD 71
-
-
-typedef struct user_client{
-    char name[20];
-    char passwd[17];
-    int flag;
-}userClient;
-
-typedef struct user_server{
-    char name[20];
-    short status;
-    short identity;
-    struct user_server *next;
-}userServer;
-
-struct user_server *pHead = NULL;
-
-typedef struct Message{
-    char name[20];
-    char time[28];
-    char text[TEXTBUFFER];
-}message;
-
-void get_time_message(struct Message *temp);
+#include"demo/chatroom.h"
 void select_file(GtkWidget *widget , void * pointer);
 void chat_single(GtkWidget *widget , void *pointer);
 void *recv_single();
 void *recv_all(void *arg);
-void get_file_name(GtkWidget *w, void *pointer);
+void send_file(GtkWidget *w, void *pointer);
+void show_history(GtkWidget *w, void *pointer);
 
 void send_entry(GtkWidget *w, void *entry);
 void chat_all(GtkWidget *widget , void *pointer);
@@ -81,72 +34,80 @@ void sign_up(GtkWidget *widget1, void *pointer);
 void ftp(GtkWidget *widget1, void *pointer);
 void feather(GtkWidget widget1, void *pointer);
 int  go();
+void fresh_file(GtkWidget *w,void *pointer);
+void down_file(GtkWidget *w, void * pointer);
+const int lenMessage = sizeof(message);
+const int lenUserClient = sizeof(userClient) ;
 GtkWidget *window_main;
 GtkWidget *entry_user;
 GtkWidget *entry_password;
-GtkTextBuffer *text_buffer_all,*text_buffer_single, *file_buffer;
+GtkTextBuffer *text_buffer_all,*text_buffer_single, *file_buffer, *down_buffer, *history_buffer;
 GtkWidget *scrolli_left_single,*text_view_left_single;
 GtkWidget *scrolli_right_single,*text_view_right_single;
 GtkWidget *scrolli_left_all,*text_view_left_all;
 GtkWidget *scrolli_right_all,*text_view_right_all;
 GtkWidget *filew;
 GtkWidget *scrolli_down, *text_view_down;
+GtkWidget *scrolli_history, *text_view_history;
 GtkWidget *entry_on;
-int socket_fd;
+int socket_fd; // client 唯一对应socket_fd
 const char *name;
 const char *passwd;
 char username[20];
 char filename[100];
+
+
+/* 文件选择框退出*/
 void select_file_quit(GtkWidget *a, void *p)
 {
     gtk_widget_show(p);
     gtk_widget_destroy(filew);
 }
+/*显示隐藏的控件*/
 void show(GtkWidget *a, void *p)
 {
     gtk_widget_show(p);
-    //gtk_widget_destroy(window_test);
 }
+/*ftp功能窗口退出*/
 void ftp_quit(GtkWidget *w,void *pointer)
 {
     userClient *p;
-    p = (userClient *)malloc(sizeof(userClient));
+    p = (userClient *)malloc(lenUserClient);
     p -> flag = _FAIL;
     gtk_widget_show(pointer);
-    write(socket_fd, p, sizeof(userClient));
+    write(socket_fd, p, lenUserClient);
+    free(p);
+    return ;
     
 }
+/**/
 void fun_quit(GtkWidget *w,void *pointer)
 {
     gtk_widget_show(pointer);
     message *m;
-    m = (message * )malloc(sizeof(message));
+    m = (message * )malloc(lenMessage);
     strcpy(m -> text, "quit");
-    write(socket_fd, m, sizeof(message));
+    write(socket_fd, m, lenMessage);
     
 }
-/*
-void close1(GtkWidget *a, void *p)
-{
-    gtk_widget_destroy(window_test);
-}
-*/
+
 void close2(GtkWidget *w, void *p)
 {
     gtk_widget_show(window_main);
     gtk_widget_destroy((GtkWidget *)p);
 }
 
+/*主功能窗口退出&client退出*/
 void feather_quit(GtkWidget *w, void *pointer)
 {
     userClient *p;
-    p = (userClient *)malloc(sizeof(userClient));
+    p = (userClient *)malloc(lenUserClient);
     p -> flag = _FAIL;
-    write(socket_fd, p, sizeof(userClient));
+    write(socket_fd, p, lenUserClient);
     gtk_main_quit();
     
 }
-
+/*注册窗口*/
 void sign_up(GtkWidget *widget1, void *pointer)
 {
 
@@ -211,10 +172,9 @@ void sign_up(GtkWidget *widget1, void *pointer)
 
     gtk_widget_show_all(window);
     
-    //主循环
 }
 
-
+/*退出前确认框*/
 void escape(GtkWidget *widget,gpointer a )
 {
 
@@ -246,18 +206,14 @@ void escape(GtkWidget *widget,gpointer a )
     gtk_container_add(GTK_CONTAINER(box1),button_yes);
     gtk_container_add(GTK_CONTAINER(box1),button_no);
     gtk_container_add(GTK_CONTAINER(window_test),box);//将box添加到window
-    //gtk_container_add(GTK_CONTAINER(window),box1);//将box添加到window
     
-    //gtk_widget_hide(a);
     g_signal_connect(G_OBJECT(button_yes),"clicked",G_CALLBACK(gtk_main_quit),NULL); // 将退出信号连接
     g_signal_connect(G_OBJECT(button_no), "clicked",G_CALLBACK(close2),window_test);
     g_signal_connect(G_OBJECT(window_test), "destroy",G_CALLBACK(close2),window_test);
-    //g_signal_connect_swapped(G_OBJECT(button_no),"clicked",G_CALLBACK(gtk_main_quit),NULL); 
-    //g_signal_connect(G_OBJECT(button_no),"clicked",G_CALLBACK(gtk_widget_destroy),&window);
     gtk_widget_show_all(window_test);
     
 }
-
+/*登录界面*/
 int main(int argc, char *argv[])
 {
     GtkWidget *button_signup;
@@ -310,7 +266,6 @@ int main(int argc, char *argv[])
     g_signal_connect(G_OBJECT(button_signin),"clicked",G_CALLBACK(feather),window_main); 
     
     g_signal_connect(G_OBJECT(button_signup),"clicked",G_CALLBACK(sign_up),window_main); 
-   // g_signal_connect(G_OBJECT(button_signin),"clicked",G_CALLBACK(test),NULL); // 将退出信号连接
     g_signal_connect(G_OBJECT(window_main),"delete_event",G_CALLBACK(escape),NULL); // 弹出一个确认框 
 
 
@@ -320,7 +275,7 @@ int main(int argc, char *argv[])
     //主循环
     gtk_main();
 }
-    
+/*主功能选择界面*/    
 void feather(GtkWidget widget1, void *pointer)
 {
     GtkWidget *window,*button1,*button2,*button3, *button4;
@@ -361,8 +316,6 @@ void feather(GtkWidget widget1, void *pointer)
     g_signal_connect(G_OBJECT(button1),"clicked",G_CALLBACK(chat_all),window);
     g_signal_connect(G_OBJECT(button2),"clicked",G_CALLBACK(chat_single),window);
     g_signal_connect(G_OBJECT(window),"destroy",G_CALLBACK(feather_quit),NULL);
-    //gtk_window_set_destroy_with_parent(window,FALSE);
-    ////g_signal_connect_swapped(G_OBJECT,"clicked",G_CALLBACK(gtk_))
     
     gtk_container_add(GTK_CONTAINER(window), box);
     if((socket_fd = go()) != 0){
@@ -375,7 +328,7 @@ void feather(GtkWidget widget1, void *pointer)
 }
 
 
-
+/*ftp功能选择界面*/
 void ftp(GtkWidget *widget1, void *pointer)
 {
     GtkWidget *window,*button1,*button2,*button3, *button4;
@@ -384,7 +337,7 @@ void ftp(GtkWidget *widget1, void *pointer)
 
     gtk_widget_hide(pointer);
 
-    button2 = gtk_button_new_with_label("确认上传");
+    button2 = gtk_button_new_with_label("查看服务器上的资源");
     button1 = gtk_button_new_with_label("确认下载");
     button3 = gtk_button_new_with_label("请选择你要上传的文件");
 
@@ -409,12 +362,13 @@ void ftp(GtkWidget *widget1, void *pointer)
     text_view_down = gtk_text_view_new();
 
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolli_down), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-    gtk_widget_set_size_request(scrolli_down,400,50);
+    gtk_widget_set_size_request(scrolli_down,400,100);
 
     gtk_box_pack_start(GTK_BOX(box),label,FALSE,FALSE,10);
     gtk_box_pack_start(GTK_BOX(box),sep,FALSE,FALSE,10);
     gtk_box_pack_start(GTK_BOX(box),scrolli_down,FALSE,FALSE,10);
     gtk_box_pack_start(GTK_BOX(box),entry_on,FALSE,FALSE,10);
+    gtk_box_pack_start(GTK_BOX(box),button2,FALSE,FALSE,10);
     gtk_box_pack_start(GTK_BOX(box),button1,FALSE,FALSE,10);
     gtk_box_pack_start(GTK_BOX(box),sep2,FALSE,FALSE,10);
     gtk_box_pack_start(GTK_BOX(box),button3,FALSE,FALSE,10);
@@ -424,90 +378,141 @@ void ftp(GtkWidget *widget1, void *pointer)
     gtk_box_pack_start(GTK_BOX(box2),picture,FALSE,FALSE,10);
     gtk_box_pack_start(GTK_BOX(box),box2,FALSE,FALSE,10);
 
-   gtk_container_add(GTK_CONTAINER(scrolli_down),text_view_down);
+    gtk_container_add(GTK_CONTAINER(scrolli_down),text_view_down);
     gtk_container_add(GTK_CONTAINER(window), box);
 
+    g_signal_connect(G_OBJECT(button2), "clicked",G_CALLBACK(fresh_file),NULL);
+    g_signal_connect(G_OBJECT(button1), "clicked",G_CALLBACK(down_file),entry_on); // entry bu yiding
     g_signal_connect(G_OBJECT(button3), "clicked",G_CALLBACK(select_file),window);
     g_signal_connect(G_OBJECT(window), "destroy",G_CALLBACK(ftp_quit),pointer);
     
     userClient *p;
-    p = (userClient *)malloc(sizeof(userClient));
+    p = (userClient *)malloc(lenUserClient);
     p -> flag = FTP;
-    write(socket_fd, p, sizeof(userClient));
+    write(socket_fd, p, lenUserClient);
     
     gtk_widget_show_all(window);
 }
+/*下载文件到本地*/
+void down_file(GtkWidget *w, void * pointer)
+{
+    const char *down_file_name;
+    FILE *fp;
+    userClient *p;
+    message *m;
+    char *mm;
+    int i;
+    p = (userClient *)malloc(lenUserClient);
+    down_file_name = gtk_entry_get_text(GTK_ENTRY(pointer));
+    strcpy(p -> name, down_file_name);
+    p -> flag = DOWNFILE;
+    write(socket_fd, p, lenUserClient);
+    fp = fopen(down_file_name,"w+");
+    m = (message *)malloc(lenMessage);
+    do{
+        memset(m,0,lenMessage);
+        i = recv(socket_fd, m ,lenMessage,0);
+        printf("%s\n",m -> text);
+        fwrite(m ->text,strlen(m -> text),1,fp);
+        printf("%d\n",i);
+        if(strcmp(m -> name,"no file") == 0){
+            printf("no such file \n");
+            fclose(fp);
+            return;
+        }
+        if(strcmp(m -> name, "finish") == 0){
+            fclose(fp);
+            return;
+        }
+    }while(1);
+}
+/*刷新 显示服务器可供下载的文件*/
+void fresh_file(GtkWidget *w,void *pointer)
+{
+    userClient *p;
+    GtkTextIter start,end;
+    message *m;
+    char *key;
+    int i;
+    char *PP;
+    p = (userClient *)malloc(lenUserClient);
+    m = (message *)malloc(lenMessage);
+    p -> flag = FRESHFILE;
+    write(socket_fd, p, lenUserClient);
+    i = read(socket_fd, m , lenMessage);
+    key = m -> text;
+    
+    for(i = 0; i < sizeof(m -> text); i++){
+        key++;
+        if(*key != 0)
+        break;
+    }
+    down_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view_down));
+    gtk_text_buffer_get_bounds(GTK_TEXT_BUFFER(down_buffer),&start,&end);
+    gtk_text_buffer_insert(GTK_TEXT_BUFFER(down_buffer),&end,key,strlen(key));
+    free(m);
+    free(p);
+    return ;
 
+}
+
+
+/*选择要上传的文件&文件选择界面*/
 void select_file(GtkWidget *widget , void * pointer)
 {
     filew = gtk_file_selection_new("选择要上传的文件");
     gtk_widget_hide(pointer);
     g_signal_connect(G_OBJECT(filew), "destroy", G_CALLBACK(show),pointer);
     g_signal_connect(G_OBJECT(GTK_FILE_SELECTION(filew) -> cancel_button), "clicked", G_CALLBACK(select_file_quit),pointer);
-    g_signal_connect(G_OBJECT(GTK_FILE_SELECTION(filew) -> ok_button),"clicked",G_CALLBACK(get_file_name),pointer);
+    g_signal_connect(G_OBJECT(GTK_FILE_SELECTION(filew) -> ok_button),"clicked",G_CALLBACK(send_file),pointer);
     gtk_widget_show(filew);
 }
-
-void get_file_name(GtkWidget *w, void *pointer)
+/*上传文件至服务器*/
+void send_file(GtkWidget *w, void *pointer)
 {
     GtkTextIter start,end;
     const char *temp;
-    char *k;
-    int fd,t;
-    FILE *fp;
+    const char *k;
+    int fd,num;
     message *m;
     userClient *p;
-    p = (userClient *)malloc(sizeof(userClient));
+    p = (userClient *)malloc(lenUserClient);
     temp = gtk_file_selection_get_filename(GTK_FILE_SELECTION(filew));
     strcpy(filename,temp);
     k = &temp[strlen(temp) - 1];
     while(*(--k) != '/'); 
     strcpy(p -> name,k+1);
-    p -> flag = 1;
+    p -> flag = UPFILE;
     printf("%s\n",p -> name);
-    write(socket_fd, p , sizeof(userClient));
-    fp = fopen(filename, "r");
-    //fd = open(filename,O_RDONLY);
-    
-    while(feof(fp) == 0){
-        m = (message *)malloc(sizeof(message));
-        strcpy(m -> name, " ");
-        fread(m -> text, sizeof(m -> text), 1, fp);
-        printf("%s\n", m -> text);
-        write(socket_fd, m , sizeof(message));
-        free(m);
-    }
-    /*
-    do{
-        m = (message *)malloc(sizeof(message));
-        strcpy(m -> name, " ");
-        t = read(fd, m -> text, sizeof(m -> text));
-        printf("%s\n", m -> text);
-        write(socket_fd, m , sizeof(message));
-        if(t == 0){
-            free(m);
+    write(socket_fd, p , lenUserClient);
+    fd = open(filename,O_RDONLY);
+    m = (message *)malloc(lenMessage);
+    while(1){
+        memset(m, 0, lenMessage);
+        if((num = read(fd, m -> text, sizeof(m -> text))) == 0){
             break;
         }
-        free(m);
-        
-    }while(1);
-    */
-    m = (message *)malloc(sizeof(message));
+        strcpy(m -> name, " ");
+        printf("%s",m -> text);
+        write(socket_fd, m , lenMessage);
+    }
+    memset(m, 0, lenMessage);
     strcpy(m -> name, "finish");
-    write(socket_fd, m , sizeof(message));
+    write(socket_fd, m , lenMessage);
     free(m);
 
     gtk_widget_destroy(filew);
     gtk_widget_show(pointer);
 }
-
+/*群聊 接受并显示消息*/
 void *recv_all(void *arg)
 {
     message *m;
     GtkTextIter start,end;
+    m = (message *)malloc(lenMessage);
     while(1){
-        m = (message *)malloc(sizeof(message));
-        recv(socket_fd, m, sizeof(message),0);
+        memset(m, 0, lenMessage);
+        recv(socket_fd, m, lenMessage,0);
         text_buffer_all = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view_left_all));
         gtk_text_buffer_get_bounds(GTK_TEXT_BUFFER(text_buffer_all),&start,&end);
         m -> text[strlen(m -> text)] == '\0';
@@ -516,10 +521,11 @@ void *recv_all(void *arg)
         gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_all),&end,m-> name,strlen(m -> name));
         gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_all),&end,m->text,strlen(m -> text));
         printf("server: %s\n",m -> text);
-        free(m);
     }
+    free(m);
+    return;
 }
-
+/*群聊 界面*/
 void chat_all(GtkWidget *widget , void *pointer)
 {
     GtkWidget *window,*button_history,*button_yes,*button_fresh;
@@ -594,35 +600,76 @@ void chat_all(GtkWidget *widget , void *pointer)
 
     g_signal_connect(G_OBJECT(window), "destroy", G_CALLBACK(show), pointer);
     g_signal_connect(G_OBJECT(button_yes), "clicked" ,G_CALLBACK(send_entry), entry);
-    g_signal_connect(G_OBJECT(button_history), "clicked", G_CALLBACK(show), pointer);
+    g_signal_connect(G_OBJECT(button_history), "clicked", G_CALLBACK(show_history), pointer);
     g_signal_connect(G_OBJECT(button_fresh), "clicked" ,G_CALLBACK(show), pointer);
 
 
 
     userClient *p;
-    p = (userClient *)malloc(sizeof(userClient));
+    p = (userClient *)malloc(lenUserClient);
     p -> flag = CHAT_ALL;
-    write(socket_fd, p, sizeof(userClient));
+    write(socket_fd, p, lenUserClient);
+
     pthread_create(&pthid,NULL,recv_all,NULL);
+
+    gtk_widget_show_all(window);
+}
+/*群聊 显示历史信息*/
+void show_history(GtkWidget *w, void *pointer)
+{
+    GtkWidget *window;
+    GtkTextIter start,end;
+    message *m;
+    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(window),"历史记录");
+    gtk_widget_set_usize(GTK_WIDGET(window),700,700);
+    gtk_window_set_resizable(GTK_WINDOW(window),FALSE);
+    gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
+    gtk_container_set_border_width(GTK_CONTAINER(window),40);
+    
+    scrolli_history = gtk_scrolled_window_new(NULL, NULL);
+    text_view_history  = gtk_text_view_new();
+    history_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view_history));
+    gtk_text_buffer_get_bounds(GTK_TEXT_BUFFER(history_buffer),&start,&end);
+
+    m = (message *)malloc(lenMessage);
+    strcpy(m -> text, "history");
+    write(socket_fd, m ,lenMessage);
+    while(1){
+        memset(m, 0, lenMessage);
+        read(socket_fd, m ,lenMessage);
+        m -> text[strlen(m -> text)] == '\0';
+        if(strcmp(m -> text, "finish") == 0)
+            break;
+        gtk_text_buffer_insert(GTK_TEXT_BUFFER(history_buffer),&end,m->time,strlen(m -> time));
+        gtk_text_buffer_insert(GTK_TEXT_BUFFER(history_buffer),&end,m-> name,strlen(m -> name));
+        gtk_text_buffer_insert(GTK_TEXT_BUFFER(history_buffer),&end,m->text,strlen(m -> text));
+        printf("server:%s\n",m -> text);
+    }
+    
+
+
+    gtk_container_add(GTK_CONTAINER(scrolli_history),text_view_history);
+    gtk_container_add(GTK_CONTAINER(window),scrolli_history);
     gtk_widget_show_all(window);
 }
 
-
+/*发送聊天消息*/
 void send_entry(GtkWidget *w, void *entry)
 {
     const char *a;
     message *m;
-    m = (message *)malloc(sizeof(message));
+    m = (message *)malloc(lenMessage);
     a = gtk_entry_get_text(entry);
     strcpy(m -> text, a);
     printf("%s\n",m -> text);
     strcpy(m ->name,username);
-    write(socket_fd, m, sizeof(message));
+    write(socket_fd, m, lenMessage);
     free(m);
     gtk_entry_set_text(GTK_ENTRY(entry), " ");
     return;
 }
-
+/*私聊界面*/
 void chat_single(GtkWidget *widget , void *pointer)
 {
     pthread_t pthid;
@@ -702,30 +749,33 @@ void chat_single(GtkWidget *widget , void *pointer)
     gtk_container_add(GTK_CONTAINER(window), box);
 
     userClient *p;
-    p = (userClient *)malloc(sizeof(userClient));
+    p = (userClient *)malloc(lenUserClient);
     p -> flag = CHAT_ONE;
-    write(socket_fd, p, sizeof(userClient));
+    write(socket_fd, p, lenUserClient);
+
     pthread_create(&pthid,NULL,recv_single,NULL);
     
     gtk_widget_show_all(window);
 }
+
 void *recv_single(void *arg)
 {
     message *m;
     GtkTextIter start,end;
         text_buffer_single = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view_left_single));
         gtk_text_buffer_get_bounds(GTK_TEXT_BUFFER(text_buffer_single),&start,&end);
+        m = (message *)malloc(lenMessage);
     while(1){
-        m = (message *)malloc(sizeof(message));
-        recv(socket_fd, m, sizeof(message),0);
+        memset(m, 0, lenMessage);
+        recv(socket_fd, m, lenMessage,0);
         m -> text[strlen(m -> text)] == '\0';
 
         //gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_single),&end,m->time,strlen(m -> time));
        // gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_single),&end,m-> name,strlen(m -> name));
         gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_single),&end,m->text,strlen(m -> text));
         printf("server:%s\n",m -> text);
-        free(m);
     }
+    free(m);
 }
    
 int  go(void)
@@ -743,7 +793,7 @@ int  go(void)
     
     name = gtk_entry_get_text(GTK_ENTRY(entry_user));
     passwd = gtk_entry_get_text(GTK_ENTRY(entry_password));
-    p = (userClient *)malloc(sizeof(userClient));
+    p = (userClient *)malloc(lenUserClient);
     strcpy(p -> name, name);
     strcpy(p -> passwd,passwd);
     p -> flag = SIGNIN;
@@ -766,7 +816,7 @@ int  go(void)
         exit(1);
     }else{
         /*
-                if((temp = send(socket_fd, p,sizeof(userClient), 0) )< 0){
+                if((temp = send(socket_fd, p,lenUserClient, 0) )< 0){
                     printf("%d",temp);
                     perror("send");
                     exit(1);}
@@ -779,7 +829,7 @@ int  go(void)
                 exit(1);
             }
             if(pid == 0){
-                if(send(socket_fd, p,sizeof(userClient), 0) < 0){
+                if(send(socket_fd, p,lenUserClient, 0) < 0){
                     perror("send");
                     exit(1);
                 }else{
