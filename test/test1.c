@@ -515,8 +515,18 @@ void *recv_all(void *arg)
         recv(socket_fd, m, lenMessage,0);
         text_buffer_all = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view_left_all));
         gtk_text_buffer_get_bounds(GTK_TEXT_BUFFER(text_buffer_all),&start,&end);
-        m -> text[strlen(m -> text)] == '\0';
+        /*
+        m -> text[strlen(m -> text)] == '\n';
+        m -> text[strlen(m -> text) + 1] == '\0';
+        m -> time[strlen(m -> time) ] == '\n';
+        m -> time[strlen(m -> time) + 1 ] == '\0';
+        m -> name[strlen(m -> name)] == '\n';
+        m -> name[strlen(m -> name) + 1] == '\0';
+        */
 
+        m -> text[strlen(m -> text)] == '\0';
+        m -> time[strlen(m -> time) ] == '\0';
+        m -> name[strlen(m -> name)] == '\0';
         gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_all),&end,m->time,strlen(m -> time));
         gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_all),&end,m-> name,strlen(m -> name));
         gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_all),&end,m->text,strlen(m -> text));
@@ -662,8 +672,10 @@ void send_entry(GtkWidget *w, void *entry)
     m = (message *)malloc(lenMessage);
     a = gtk_entry_get_text(entry);
     strcpy(m -> text, a);
+    m -> text[strlen(m -> text)] = '\0';
     printf("%s\n",m -> text);
     strcpy(m ->name,username);
+    m -> name[strlen(m -> name)] = '\0';
     write(socket_fd, m, lenMessage);
     free(m);
     gtk_entry_set_text(GTK_ENTRY(entry), " ");
@@ -769,9 +781,11 @@ void *recv_single(void *arg)
         memset(m, 0, lenMessage);
         recv(socket_fd, m, lenMessage,0);
         m -> text[strlen(m -> text)] == '\0';
+        m -> time[strlen(m -> time) +1 ] == '\0';
+        m -> name[strlen(m -> name)] == '\0';
 
-        //gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_single),&end,m->time,strlen(m -> time));
-       // gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_single),&end,m-> name,strlen(m -> name));
+        gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_single),&end,m->time,strlen(m -> time));
+        gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_single),&end,m-> name,strlen(m -> name));
         gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_single),&end,m->text,strlen(m -> text));
         printf("server:%s\n",m -> text);
     }
