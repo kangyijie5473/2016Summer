@@ -19,13 +19,14 @@
 #include<pthread.h>
 #include<wait.h>
 #include<fcntl.h>
-#include"demo/chatroom.h"
+#include"chatroom.h"
 void select_file(GtkWidget *widget , void * pointer);
 void chat_single(GtkWidget *widget , void *pointer);
 void *recv_single();
 void *recv_all(void *arg);
 void send_file(GtkWidget *w, void *pointer);
 void show_history(GtkWidget *w, void *pointer);
+void fresh_people(GtkWidget *w, void *pointer);
 
 void send_entry(GtkWidget *w, void *entry);
 void chat_all(GtkWidget *widget , void *pointer);
@@ -42,6 +43,7 @@ GtkWidget *window_main;
 GtkWidget *entry_user;
 GtkWidget *entry_password;
 GtkTextBuffer *text_buffer_all,*text_buffer_single, *file_buffer, *down_buffer, *history_buffer;
+GtkTextBuffer *all_people_buffer;
 GtkWidget *scrolli_left_single,*text_view_left_single;
 GtkWidget *scrolli_right_single,*text_view_right_single;
 GtkWidget *scrolli_left_all,*text_view_left_all;
@@ -49,6 +51,7 @@ GtkWidget *scrolli_right_all,*text_view_right_all;
 GtkWidget *filew;
 GtkWidget *scrolli_down, *text_view_down;
 GtkWidget *scrolli_history, *text_view_history;
+//GtkWidget *scrolli_all_people, *text_view_all_people;
 GtkWidget *entry_on;
 int socket_fd; // client 唯一对应socket_fd
 const char *name;
@@ -86,7 +89,7 @@ void fun_quit(GtkWidget *w,void *pointer)
     gtk_widget_show(pointer);
     message *m;
     m = (message * )malloc(lenMessage);
-    strcpy(m -> text, "quit");
+    strcpy(m -> time, "quit");
     write(socket_fd, m, lenMessage);
     
 }
@@ -382,7 +385,7 @@ void ftp(GtkWidget *widget1, void *pointer)
     gtk_container_add(GTK_CONTAINER(window), box);
 
     g_signal_connect(G_OBJECT(button2), "clicked",G_CALLBACK(fresh_file),NULL);
-    g_signal_connect(G_OBJECT(button1), "clicked",G_CALLBACK(down_file),entry_on); // entry bu yiding
+    g_signal_connect(G_OBJECT(button1), "clicked",G_CALLBACK(down_file),NULL); // entry bu yiding
     g_signal_connect(G_OBJECT(button3), "clicked",G_CALLBACK(select_file),window);
     g_signal_connect(G_OBJECT(window), "destroy",G_CALLBACK(ftp_quit),pointer);
     
@@ -403,7 +406,7 @@ void down_file(GtkWidget *w, void * pointer)
     char *mm;
     int i;
     p = (userClient *)malloc(lenUserClient);
-    down_file_name = gtk_entry_get_text(GTK_ENTRY(pointer));
+    down_file_name = gtk_entry_get_text(GTK_ENTRY(entry_on));
     strcpy(p -> name, down_file_name);
     p -> flag = DOWNFILE;
     write(socket_fd, p, lenUserClient);
@@ -489,7 +492,7 @@ void send_file(GtkWidget *w, void *pointer)
     m = (message *)malloc(lenMessage);
     while(1){
         memset(m, 0, lenMessage);
-        if((num = read(fd, m -> text, sizeof(m -> text))) == 0){
+        if((num = read(fd, m -> text, sizeof(m -> text))) <= 0){
             break;
         }
         strcpy(m -> name, " ");
@@ -507,33 +510,29 @@ void send_file(GtkWidget *w, void *pointer)
 /*群聊 接受并显示消息*/
 void *recv_all(void *arg)
 {
+    char *one;
     message *m;
+    FILE *fp;
     GtkTextIter start,end;
     m = (message *)malloc(lenMessage);
-    while(1){
-        memset(m, 0, lenMessage);
-        recv(socket_fd, m, lenMessage,0);
         text_buffer_all = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view_left_all));
         gtk_text_buffer_get_bounds(GTK_TEXT_BUFFER(text_buffer_all),&start,&end);
-        /*
-        m -> text[strlen(m -> text)] == '\n';
-        m -> text[strlen(m -> text) + 1] == '\0';
-        m -> time[strlen(m -> time) ] == '\n';
-        m -> time[strlen(m -> time) + 1 ] == '\0';
-        m -> name[strlen(m -> name)] == '\n';
-        m -> name[strlen(m -> name) + 1] == '\0';
-        */
+    one = (char *)malloc(500);
+    fp = fopen("history","a+");
+    while(1){
+        memset(m, 0, lenMessage);
+        memset(one, 0, 500);
+        recv(socket_fd, m, lenMessage,0);
+        //fprintf(stdout,"%s\n%s: %s\n",m -> time, m-> name,m -> text);
 
-        m -> text[strlen(m -> text)] == '\0';
-        m -> time[strlen(m -> time) ] == '\0';
-        m -> name[strlen(m -> name)] == '\0';
-        gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_all),&end,m->time,strlen(m -> time));
-        gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_all),&end,m-> name,strlen(m -> name));
-        gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_all),&end,m->text,strlen(m -> text));
-        printf("server: %s\n",m -> text);
+        sprintf(one,"%s\n%s: %s\n",m -> time, m-> name,m -> text);
+        fprintf(fp,"%s\n%s: %s\n",m -> time, m-> name,m -> text);
+
+        gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_all),&end,one,strlen(one));
     }
     free(m);
-    return;
+    free(one);
+    return NULL;
 }
 /*群聊 界面*/
 void chat_all(GtkWidget *widget , void *pointer)
@@ -542,8 +541,6 @@ void chat_all(GtkWidget *widget , void *pointer)
     GtkWidget *box,*sep,*label,*picture,*box4,*box2,*box3;
     GtkWidget *box5, *box6;
     GtkWidget *entry;
-    GtkWidget *scrolli_left,*text_view_left;
-    GtkWidget *scrolli_right,*text_view_right;
     pthread_t pthid;
 
     gtk_widget_hide(pointer);
@@ -611,7 +608,7 @@ void chat_all(GtkWidget *widget , void *pointer)
     g_signal_connect(G_OBJECT(window), "destroy", G_CALLBACK(show), pointer);
     g_signal_connect(G_OBJECT(button_yes), "clicked" ,G_CALLBACK(send_entry), entry);
     g_signal_connect(G_OBJECT(button_history), "clicked", G_CALLBACK(show_history), pointer);
-    g_signal_connect(G_OBJECT(button_fresh), "clicked" ,G_CALLBACK(show), pointer);
+    g_signal_connect(G_OBJECT(button_fresh), "clicked" ,G_CALLBACK(fresh_people), pointer);
 
 
 
@@ -624,12 +621,56 @@ void chat_all(GtkWidget *widget , void *pointer)
 
     gtk_widget_show_all(window);
 }
+
+
+void fresh_people(GtkWidget *w, void *pointer)
+{
+    GtkTextIter start,end;
+    message *m;
+    m = (message *)malloc(lenMessage);
+
+    //scrolli_all_people = gtk_scrolled_window_new(NULL, NULL);
+    //text_view_all_people  = gtk_text_view_new();
+    //all_people_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view_right_all));
+    //gtk_text_buffer_get_bounds(GTK_TEXT_BUFFER(all_people_buffer),&start,&end);
+
+    memset(m, 0, lenMessage);
+    strcpy(m -> time, "fresh");
+    write(socket_fd, m, lenMessage);
+    memset(m, 0, lenMessage);
+    while(1){
+    printf("1\n");
+        read(socket_fd, m, lenMessage);
+    printf("2\n");
+        if(strcpy(m -> name, "people") == 0){
+    printf("3\n");
+            break;
+        }
+        memset(m, 0, lenMessage);
+    }
+    printf("peoplebuffer: %s\n", m -> text);
+    //gtk_text_buffer_insert(GTK_TEXT_BUFFER(all_people_buffer),&end,m -> text,strlen(m -> text));
+    return ; 
+    
+}
+
+
+
+
+
+
+
+
+
+
 /*群聊 显示历史信息*/
 void show_history(GtkWidget *w, void *pointer)
 {
     GtkWidget *window;
     GtkTextIter start,end;
     message *m;
+    char *one;
+    FILE *fp;
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(window),"历史记录");
     gtk_widget_set_usize(GTK_WIDGET(window),700,700);
@@ -642,26 +683,27 @@ void show_history(GtkWidget *w, void *pointer)
     history_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view_history));
     gtk_text_buffer_get_bounds(GTK_TEXT_BUFFER(history_buffer),&start,&end);
 
+    fp = fopen("history","r+");
     m = (message *)malloc(lenMessage);
-    strcpy(m -> text, "history");
-    write(socket_fd, m ,lenMessage);
-    while(1){
+    one = (char *)malloc(500);
+    while(feof(fp) == 0){
+
+        memset(one, 0, 500);
         memset(m, 0, lenMessage);
-        read(socket_fd, m ,lenMessage);
-        m -> text[strlen(m -> text)] == '\0';
-        if(strcmp(m -> text, "finish") == 0)
-            break;
-        gtk_text_buffer_insert(GTK_TEXT_BUFFER(history_buffer),&end,m->time,strlen(m -> time));
-        gtk_text_buffer_insert(GTK_TEXT_BUFFER(history_buffer),&end,m-> name,strlen(m -> name));
-        gtk_text_buffer_insert(GTK_TEXT_BUFFER(history_buffer),&end,m->text,strlen(m -> text));
-        printf("server:%s\n",m -> text);
+        fgets(m -> time,30,fp);
+        fgets(m -> text, 255,fp);
+        sprintf(one, "%s%s\n",m -> time, m -> text);
+        gtk_text_buffer_insert(GTK_TEXT_BUFFER(history_buffer),&end,one,strlen(one));
     }
-    
-
-
+    free(m);
+    free(one);
+    fclose(fp);
     gtk_container_add(GTK_CONTAINER(scrolli_history),text_view_history);
     gtk_container_add(GTK_CONTAINER(window),scrolli_history);
     gtk_widget_show_all(window);
+   // destroy 
+
+
 }
 
 /*发送聊天消息*/
@@ -670,15 +712,16 @@ void send_entry(GtkWidget *w, void *entry)
     const char *a;
     message *m;
     m = (message *)malloc(lenMessage);
+    memset(m, 0, lenMessage);
     a = gtk_entry_get_text(entry);
     strcpy(m -> text, a);
     m -> text[strlen(m -> text)] = '\0';
-    printf("%s\n",m -> text);
+    printf("send:%s\n",m -> text);
     strcpy(m ->name,username);
     m -> name[strlen(m -> name)] = '\0';
     write(socket_fd, m, lenMessage);
     free(m);
-    gtk_entry_set_text(GTK_ENTRY(entry), " ");
+    gtk_entry_set_text(GTK_ENTRY(entry), "");
     return;
 }
 /*私聊界面*/
@@ -772,24 +815,23 @@ void chat_single(GtkWidget *widget , void *pointer)
 
 void *recv_single(void *arg)
 {
+    char *one;
     message *m;
     GtkTextIter start,end;
-        text_buffer_single = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view_left_single));
-        gtk_text_buffer_get_bounds(GTK_TEXT_BUFFER(text_buffer_single),&start,&end);
-        m = (message *)malloc(lenMessage);
+    text_buffer_single = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view_left_single));
+    gtk_text_buffer_get_bounds(GTK_TEXT_BUFFER(text_buffer_single),&start,&end);
+    m = (message *)malloc(lenMessage);
+    one = (char *)malloc(500);
     while(1){
         memset(m, 0, lenMessage);
+        memset(one, 0, 500);
         recv(socket_fd, m, lenMessage,0);
-        m -> text[strlen(m -> text)] == '\0';
-        m -> time[strlen(m -> time) +1 ] == '\0';
-        m -> name[strlen(m -> name)] == '\0';
-
-        gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_single),&end,m->time,strlen(m -> time));
-        gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_single),&end,m-> name,strlen(m -> name));
-        gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_single),&end,m->text,strlen(m -> text));
-        printf("server:%s\n",m -> text);
+        sprintf(one,"%s\n%s: %s\n",m -> time, m-> name,m -> text);
+        gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_single),&end,one,strlen(one));
     }
     free(m);
+    free(one);
+    return NULL;
 }
    
 int  go(void)
@@ -816,11 +858,8 @@ int  go(void)
     
     memset(&server_addr, 0, sizeof(struct sockaddr_in));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(4507);
+    server_addr.sin_port = htons(4508);
     
-    //fgets(buffer, 31, stdin);
-    //buffer[31] = '\0';
-    //fgets(send_buffer, BUFFERSIZE, stdin);
 
     inet_aton(buffer, &server_addr.sin_addr);
 
@@ -829,12 +868,6 @@ int  go(void)
         perror("connect");
         exit(1);
     }else{
-        /*
-                if((temp = send(socket_fd, p,lenUserClient, 0) )< 0){
-                    printf("%d",temp);
-                    perror("send");
-                    exit(1);}
-                   */ 
         pid = fork();
         wait(&temp);
         while(1){
@@ -860,7 +893,6 @@ int  go(void)
                      return 0;
             }
     }
-     //   printf("%d",temp);
     return socket_fd ;
     }
 }
