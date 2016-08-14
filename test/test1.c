@@ -266,7 +266,7 @@ int main(int argc, char *argv[])
     gtk_container_add(GTK_CONTAINER(box3),button_signup);
     gtk_container_add(GTK_CONTAINER(box3),button_signin);
 
-    g_signal_connect(G_OBJECT(button_signin),"clicked",G_CALLBACK(feather),window_main); 
+    g_signal_connect(G_OBJECT(button_signin),"clicked",G_CALLBACK(feather),NULL); 
     
     g_signal_connect(G_OBJECT(button_signup),"clicked",G_CALLBACK(sign_up),window_main); 
     g_signal_connect(G_OBJECT(window_main),"delete_event",G_CALLBACK(escape),NULL); // 弹出一个确认框 
