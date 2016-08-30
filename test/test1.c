@@ -27,8 +27,16 @@ void *recv_all(void *arg);
 void send_file(GtkWidget *w, void *pointer);
 void show_history(GtkWidget *w, void *pointer);
 void fresh_people(GtkWidget *w, void *pointer);
+void friend_manage(GtkWidget *w, void *pointer);
+void add(GtkWidget *w, void *pointer);
+void dele(GtkWidget *w, void *pointer);
+void *recv_usr(void *argv);
+void yes(GtkWidget *w, void *pointer);
+void empty(GtkWidget *w,void *pointer);
+void show_history_single(GtkWidget *w, void *pointer);
 
-void send_entry(GtkWidget *w, void *entry);
+void send_entry_all(GtkWidget *w, void *entry);
+void send_entry_single(GtkWidget *w, void *entry);
 void chat_all(GtkWidget *widget , void *pointer);
 void escape(GtkWidget *widget,gpointer a );
 void sign_up(GtkWidget *widget1, void *pointer);
@@ -42,8 +50,8 @@ const int lenUserClient = sizeof(userClient) ;
 GtkWidget *window_main;
 GtkWidget *entry_user;
 GtkWidget *entry_password;
-GtkTextBuffer *text_buffer_all,*text_buffer_single, *file_buffer, *down_buffer, *history_buffer;
-GtkTextBuffer *all_people_buffer;
+GtkTextBuffer *text_buffer_all,*text_buffer_single, *file_buffer, *down_buffer, *history_buffer, *friend_buffer;
+GtkTextBuffer *all_people_buffer, *single_people_buffer;
 GtkWidget *scrolli_left_single,*text_view_left_single;
 GtkWidget *scrolli_right_single,*text_view_right_single;
 GtkWidget *scrolli_left_all,*text_view_left_all;
@@ -51,14 +59,18 @@ GtkWidget *scrolli_right_all,*text_view_right_all;
 GtkWidget *filew;
 GtkWidget *scrolli_down, *text_view_down;
 GtkWidget *scrolli_history, *text_view_history;
-//GtkWidget *scrolli_all_people, *text_view_all_people;
-GtkWidget *entry_on;
+GtkWidget *scrolli_friend, *text_view_friend;
+GtkWidget *entry_on, *entry_add;
+GtkWidget *entry_passwd_signup,*entry_passwd2_signup;
 int socket_fd; // client 唯一对应socket_fd
 const char *name;
 const char *passwd;
 char username[20];
 char filename[100];
-
+int kk, ks;
+int kkk;
+int kf;
+char myName[20];
 
 /* 文件选择框退出*/
 void select_file_quit(GtkWidget *a, void *p)
@@ -86,6 +98,10 @@ void ftp_quit(GtkWidget *w,void *pointer)
 /**/
 void fun_quit(GtkWidget *w,void *pointer)
 {
+
+    kf = 0 ;
+    kk = 0;
+    ks = 0;
     gtk_widget_show(pointer);
     message *m;
     m = (message * )malloc(lenMessage);
@@ -110,6 +126,77 @@ void feather_quit(GtkWidget *w, void *pointer)
     gtk_main_quit();
     
 }
+
+
+
+void send_sign_up(GtkWidget * w, void *pointer)
+{
+    int temp;
+    pid_t pid;
+    //char buffer[32] = "123.206.65.225", send_buffer[BUFFERSIZE], recv_buffer[BUFFERSIZE];
+   char buffer[32] = "127.0.0.1", send_buffer[BUFFERSIZE], recv_buffer[BUFFERSIZE];
+    unsigned long int address = 0;
+    struct sockaddr_in server_addr;
+    struct in_addr in;
+    userClient *p;
+    char serverFlag[20];
+    GtkWidget *p1;
+    const char *passwd2;
+    
+    
+    name = gtk_entry_get_text(GTK_ENTRY(pointer));
+    passwd = gtk_entry_get_text(GTK_ENTRY(entry_passwd_signup));
+    passwd2 = gtk_entry_get_text(GTK_ENTRY(entry_passwd2_signup));
+    if(strcmp(passwd,passwd2) != 0)
+        return;
+    p = (userClient *)malloc(lenUserClient);
+    strcpy(p -> name, name);
+    strcpy(p -> passwd,passwd);
+    p -> flag = SIGNUP;
+
+    socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    
+    memset(&server_addr, 0, sizeof(struct sockaddr_in));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(4507);
+    
+
+    inet_aton(buffer, &server_addr.sin_addr);
+
+    if((temp = connect(socket_fd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr_in))) < 0){
+        printf("%d\n",temp);
+        perror("connect");
+        exit(1);
+    }else{
+        pid = fork();
+        wait(&temp);
+        while(1){
+            if(pid < 0){
+                perror("fork");
+                exit(1);
+            }
+            if(pid == 0){
+                if(send(socket_fd, p,lenUserClient, 0) < 0){
+                    perror("send");
+                    exit(1);
+                }else{
+                    exit(0);
+                }
+            }
+            if(pid > 0){
+                read(socket_fd, serverFlag,20);
+                printf("****%s*****\n",serverFlag);
+                     if(strcmp(serverFlag,"success") == 0){
+                         exit(0);
+                     }
+            
+            }
+    }
+    }
+}
+
+
+
 /*注册窗口*/
 void sign_up(GtkWidget *widget1, void *pointer)
 {
@@ -120,7 +207,7 @@ void sign_up(GtkWidget *widget1, void *pointer)
     GtkWidget *sep;
     GtkWidget *box,*box1,*box2,*box3,*box4;
     GtkWidget *label_user,*label_passwd,*label_passwd2;
-    GtkWidget *label,*entry_user,*entry_passwd,*entry_passwd2;
+    GtkWidget *label,*entry_user;
 
     gtk_widget_hide(pointer);
 
@@ -135,12 +222,12 @@ void sign_up(GtkWidget *widget1, void *pointer)
     button_no = gtk_button_new_with_label("取消");
 
     entry_user = gtk_entry_new_with_max_length(20);
-    entry_passwd = gtk_entry_new();
-    gtk_entry_set_visibility(GTK_ENTRY(entry_passwd),FALSE);
-    entry_passwd2 = gtk_entry_new();
-    gtk_entry_set_visibility(GTK_ENTRY(entry_passwd2),FALSE);
+    entry_passwd_signup = gtk_entry_new_with_max_length(20);
+    gtk_entry_set_visibility(GTK_ENTRY(entry_passwd_signup),FALSE);
+    entry_passwd2_signup = gtk_entry_new_with_max_length(20);
+    gtk_entry_set_visibility(GTK_ENTRY(entry_passwd2_signup),FALSE);
 
-    g_signal_connect(G_OBJECT(button_yes),"clicked",G_CALLBACK(gtk_main_quit),NULL); 
+    g_signal_connect(G_OBJECT(button_yes),"clicked",G_CALLBACK(send_sign_up),entry_user); 
     g_signal_connect(G_OBJECT(button_no),"clicked",G_CALLBACK(close2),window);
     g_signal_connect(G_OBJECT(window),"destroy", G_CALLBACK(show),pointer);
 
@@ -166,9 +253,9 @@ void sign_up(GtkWidget *widget1, void *pointer)
     gtk_container_add(GTK_CONTAINER(box1),label_user);
     gtk_container_add(GTK_CONTAINER(box1),entry_user);
     gtk_container_add(GTK_CONTAINER(box2),label_passwd);
-    gtk_container_add(GTK_CONTAINER(box2),entry_passwd);
+    gtk_container_add(GTK_CONTAINER(box2),entry_passwd_signup);
     gtk_container_add(GTK_CONTAINER(box3),label_passwd2);
-    gtk_container_add(GTK_CONTAINER(box3),entry_passwd2);
+    gtk_container_add(GTK_CONTAINER(box3),entry_passwd2_signup);
     gtk_container_add(GTK_CONTAINER(box4),button_yes);
     gtk_container_add(GTK_CONTAINER(box4),button_no);
     gtk_container_add(GTK_CONTAINER(window),box);
@@ -289,7 +376,7 @@ void feather(GtkWidget widget1, void *pointer)
     button1 = gtk_button_new_with_label("进入聊天室");
     button2 = gtk_button_new_with_label("发起私聊");
     button3 = gtk_button_new_with_label("FTP");
-    button4 = gtk_button_new_with_label("用户管理");
+    button4 = gtk_button_new_with_label("好友管理");
 
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(window),"功能选择");
@@ -318,6 +405,7 @@ void feather(GtkWidget widget1, void *pointer)
     g_signal_connect(G_OBJECT(button3),"clicked",G_CALLBACK(ftp),window);
     g_signal_connect(G_OBJECT(button1),"clicked",G_CALLBACK(chat_all),window);
     g_signal_connect(G_OBJECT(button2),"clicked",G_CALLBACK(chat_single),window);
+    g_signal_connect(G_OBJECT(button4),"clicked",G_CALLBACK(friend_manage),window);
     g_signal_connect(G_OBJECT(window),"destroy",G_CALLBACK(feather_quit),NULL);
     
     gtk_container_add(GTK_CONTAINER(window), box);
@@ -328,7 +416,140 @@ void feather(GtkWidget widget1, void *pointer)
     }else {
         exit(1);
     }
+    
 }
+
+void friend_manage(GtkWidget *w, void *pointer)
+{
+    GtkWidget *window,*button1, *button2,*button3,*button4;
+    GtkWidget *entry_friend;
+    GtkWidget *box , *box1, *box2; 
+    pthread_t pthid;
+
+    gtk_widget_hide(pointer);
+
+    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(window),"好友管理");
+    gtk_widget_set_usize(GTK_WIDGET(window),700,650);
+    gtk_window_set_resizable(GTK_WINDOW(window),FALSE);
+    gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
+    gtk_container_set_border_width(GTK_CONTAINER(window),40);
+
+    box = gtk_vbox_new(FALSE, 0);
+    box1 = gtk_hbox_new(FALSE, 0);
+    box2 = gtk_hbox_new(FALSE, 0);
+
+    button1 = gtk_button_new_with_label("添加");
+    button2 = gtk_button_new_with_label("删除");
+    button3 = gtk_button_new_with_label("确定");
+    button4 = gtk_button_new_with_label("拒绝");
+    entry_friend = gtk_entry_new_with_max_length(256);
+
+    scrolli_friend = gtk_scrolled_window_new(NULL, NULL);
+    text_view_friend = gtk_text_view_new();
+    
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolli_friend), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    gtk_widget_set_size_request(scrolli_friend,400,100);
+
+    gtk_box_pack_start(GTK_BOX(box), scrolli_friend,FALSE,FALSE,10);
+    gtk_box_pack_start(GTK_BOX(box), entry_friend,FALSE,FALSE,10);
+    gtk_box_pack_start(GTK_BOX(box1), button1,FALSE,FALSE,10);
+    gtk_box_pack_start(GTK_BOX(box1), button2,FALSE,FALSE,10);
+    gtk_box_pack_start(GTK_BOX(box2), button3,FALSE,FALSE,10);
+    gtk_box_pack_start(GTK_BOX(box2), button4,FALSE,FALSE,10);
+    gtk_box_pack_start(GTK_BOX(box), box1,FALSE,FALSE,10);
+    gtk_box_pack_start(GTK_BOX(box), box2,FALSE,FALSE,10);
+
+
+    g_signal_connect(G_OBJECT(button3),"clicked",G_CALLBACK(yes),window);
+    g_signal_connect(G_OBJECT(button1),"clicked",G_CALLBACK(add),entry_friend);
+    g_signal_connect(G_OBJECT(button2),"clicked",G_CALLBACK(dele),entry_friend);
+    g_signal_connect(G_OBJECT(button4),"clicked",G_CALLBACK(friend_manage),window);
+    g_signal_connect(G_OBJECT(window),"destroy",G_CALLBACK(fun_quit),pointer);
+
+    gtk_container_add(GTK_CONTAINER(scrolli_friend),text_view_friend);
+    gtk_container_add(GTK_CONTAINER(window),box);
+
+
+    userClient *p;
+    p = (userClient *)malloc(lenUserClient);
+    p -> flag = USRMANGE;
+    write(socket_fd, p, lenUserClient);
+
+    kf = 1;
+    pthread_create(&pthid, NULL, recv_usr, NULL);
+    gtk_widget_show_all(window);
+
+}
+void *recv_usr(void *argv)
+{
+    char key[20];
+    message *m;
+    GtkTextIter start,end;
+    m = (message *)malloc(lenMessage);
+
+    friend_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view_friend));
+    gtk_text_buffer_get_bounds(GTK_TEXT_BUFFER(friend_buffer),&start,&end);
+    while(kf){
+        memset(m, 0, lenMessage);
+        recv(socket_fd, m, lenMessage, 0);
+        strcpy(key, m -> name);
+
+        gtk_text_buffer_insert(GTK_TEXT_BUFFER(friend_buffer),&end,key,strlen(key));
+    }
+}
+
+void yes(GtkWidget *w, void *pointer)
+{
+    message *m;
+    m = (message *)malloc(lenMessage);
+    memset(m, 0, lenMessage);
+
+    strcpy(m -> time, "yes");
+    write(socket_fd, m, lenMessage);
+    return ; 
+
+}
+
+void dele(GtkWidget *w, void *pointer)
+{
+    const char* name;
+    message *m;
+
+    m = (message *)malloc(lenMessage);
+    memset(m, 0, lenMessage);
+
+    name = gtk_entry_get_text(pointer);
+    strcpy(m -> name, myName);
+    strcpy(m -> time, "delete");
+    strcpy(m -> text, name);
+
+    write(socket_fd, m, lenMessage);
+    gtk_entry_set_text(GTK_ENTRY(pointer), "");
+    free(m);
+    return;
+}
+
+
+void add(GtkWidget *w, void *pointer)
+{
+    const char* name;
+    message *m;
+
+    m = (message *)malloc(lenMessage);
+    memset(m, 0, lenMessage);
+
+    name = gtk_entry_get_text(pointer);
+    strcpy(m -> name, myName);
+    strcpy(m -> time, "add");
+    strcpy(m -> text, name);
+
+    write(socket_fd, m, lenMessage);
+    gtk_entry_set_text(GTK_ENTRY(pointer), "");
+    free(m);
+    return;
+}
+
 
 
 /*ftp功能选择界面*/
@@ -525,18 +746,27 @@ void *recv_all(void *arg)
     char *one;
     message *m;
     FILE *fp;
-    GtkTextIter start,end;
+    GtkTextIter start,end,start2,end2;
     m = (message *)malloc(lenMessage);
+    all_people_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view_right_all));
+    gtk_text_buffer_get_bounds(GTK_TEXT_BUFFER(all_people_buffer),&start2,&end2);
         text_buffer_all = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view_left_all));
         gtk_text_buffer_get_bounds(GTK_TEXT_BUFFER(text_buffer_all),&start,&end);
     one = (char *)malloc(500);
     fp = fopen("history","a+");
-    while(1){
+    while(kk){
         memset(m, 0, lenMessage);
         memset(one, 0, 500);
         recv(socket_fd, m, lenMessage,0);
         if(strcmp(m -> time , "quit") == 0 )
             break;
+        if(strcmp(m -> time, "fresh") == 0){
+
+        sprintf(one,"%s\n%s\n\n","当前聊天室在线：", m-> text);
+
+            gtk_text_buffer_insert(GTK_TEXT_BUFFER(all_people_buffer),&end2,one,strlen(one));
+            continue;
+        }
         //fprintf(stdout,"%s\n%s: %s\n",m -> time, m-> name,m -> text);
 
         sprintf(one,"%s\n%s: %s\n",m -> time, m-> name,m -> text);
@@ -620,7 +850,7 @@ void chat_all(GtkWidget *widget , void *pointer)
     gtk_container_add(GTK_CONTAINER(window), box);
 
     g_signal_connect(G_OBJECT(window), "destroy", G_CALLBACK(fun_quit), pointer);
-    g_signal_connect(G_OBJECT(button_yes), "clicked" ,G_CALLBACK(send_entry), entry);
+    g_signal_connect(G_OBJECT(button_yes), "clicked" ,G_CALLBACK(send_entry_all), entry);
     g_signal_connect(G_OBJECT(button_history), "clicked", G_CALLBACK(show_history), pointer);
     g_signal_connect(G_OBJECT(button_fresh), "clicked" ,G_CALLBACK(fresh_people), pointer);
 
@@ -631,12 +861,21 @@ void chat_all(GtkWidget *widget , void *pointer)
     p -> flag = CHAT_ALL;
     write(socket_fd, p, lenUserClient);
 
+    kk = 1;
     pthread_create(&pthid,NULL,recv_all,NULL);
 
     gtk_widget_show_all(window);
 }
-
-
+void fresh_people(GtkWidget *w,void *pointer)
+{
+    message *m;
+    m = (message *)malloc(lenMessage);
+    memset(m, 0, lenMessage);
+    strcpy(m -> time, "fresh");
+    write(socket_fd, m, lenMessage);
+    return;
+}
+/*
 void fresh_people(GtkWidget *w, void *pointer)
 {
     GtkTextIter start,end;
@@ -669,7 +908,7 @@ void fresh_people(GtkWidget *w, void *pointer)
     return ; 
     
 }
-
+*/
 
 
 
@@ -716,14 +955,19 @@ void show_history(GtkWidget *w, void *pointer)
     fclose(fp);
     gtk_container_add(GTK_CONTAINER(scrolli_history),text_view_history);
     gtk_container_add(GTK_CONTAINER(window),scrolli_history);
+    g_signal_connect(G_OBJECT(window), "destroy", G_CALLBACK(empty), NULL);
     gtk_widget_show_all(window);
    // destroy 
 
 
 }
 
+void empty(GtkWidget *w,void *pointer)
+{
+    return;
+}
 /*发送聊天消息*/
-void send_entry(GtkWidget *w, void *entry)
+void send_entry_all(GtkWidget *w, void *entry)
 {
     const char *a;
     message *m;
@@ -747,14 +991,13 @@ void chat_single(GtkWidget *widget , void *pointer)
     GtkWidget *window,*button_history,*button_yes,*button_fresh, *button_add;
     GtkWidget *box,*sep,*label,*picture,*box4,*box2,*box3;
     GtkWidget *box5, *box6;
-    GtkWidget *entry, *entry_add;
+    GtkWidget *entry;
 
     gtk_widget_hide(pointer);
 
     button_yes = gtk_button_new_with_label("确认");
     button_history = gtk_button_new_with_label("历史记录");
     button_fresh  = gtk_button_new_with_label("刷新");
-    button_add = gtk_button_new_with_label("添加好友来撩");
 
 
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -809,15 +1052,15 @@ void chat_single(GtkWidget *widget , void *pointer)
     gtk_box_pack_start(GTK_BOX(box5),button_fresh,FALSE,FALSE,10);
     gtk_box_pack_start(GTK_BOX(box5),scrolli_right_single,FALSE,FALSE,10);
     gtk_box_pack_start(GTK_BOX(box5),entry_add,FALSE,FALSE,10);
-    gtk_box_pack_start(GTK_BOX(box5),button_add,FALSE,FALSE,10);
+    //gtk_box_pack_start(GTK_BOX(box5),button_add,FALSE,FALSE,10);
     
     gtk_box_pack_start(GTK_BOX(box6),entry,FALSE,FALSE,10);
     gtk_box_pack_start(GTK_BOX(box6),button_yes,FALSE,FALSE,10);
 
     g_signal_connect(G_OBJECT(window),"destroy",G_CALLBACK(fun_quit), pointer);
-    g_signal_connect(G_OBJECT(button_yes),"clicked",G_CALLBACK(send_entry), entry);
-    //g_signal_connect(G_OBJECT(button_fresh_friend),"clicked",G_CALLBACK(send_entry), entry);
-    g_signal_connect(G_OBJECT(button_add),"clicked",G_CALLBACK(send_entry), entry);
+    g_signal_connect(G_OBJECT(button_yes),"clicked",G_CALLBACK(send_entry_single), entry);
+    g_signal_connect(G_OBJECT(button_fresh),"clicked",G_CALLBACK(fresh_people), NULL);
+    g_signal_connect(G_OBJECT(button_history),"clicked",G_CALLBACK(show_history_single), NULL);
 
     gtk_container_add(GTK_CONTAINER(window), box);
 
@@ -826,24 +1069,96 @@ void chat_single(GtkWidget *widget , void *pointer)
     p -> flag = CHAT_ONE;
     write(socket_fd, p, lenUserClient);
 
+    ks = 1;
     pthread_create(&pthid,NULL,recv_single,NULL);
     
     gtk_widget_show_all(window);
 }
+void show_history_single(GtkWidget *w, void *pointer)
+{
+    GtkWidget *window;
+    GtkTextIter start,end;
+    message *m;
+    char *one;
+    FILE *fp;
+    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(window),"历史记录");
+    gtk_widget_set_usize(GTK_WIDGET(window),700,700);
+    gtk_window_set_resizable(GTK_WINDOW(window),FALSE);
+    gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
+    gtk_container_set_border_width(GTK_CONTAINER(window),40);
+    
+    scrolli_history = gtk_scrolled_window_new(NULL, NULL);
+    text_view_history  = gtk_text_view_new();
+    history_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view_history));
+    gtk_text_buffer_get_bounds(GTK_TEXT_BUFFER(history_buffer),&start,&end);
+
+    fp = fopen(myName,"r+");
+    m = (message *)malloc(lenMessage);
+    one = (char *)malloc(500);
+    while(feof(fp) == 0){
+
+        memset(one, 0, 500);
+        memset(m, 0, lenMessage);
+        fgets(m -> time,30,fp);
+        fgets(m -> text, 255,fp);
+        sprintf(one, "%s%s\n",m -> time, m -> text);
+        gtk_text_buffer_insert(GTK_TEXT_BUFFER(history_buffer),&end,one,strlen(one));
+    }
+    free(m);
+    free(one);
+    fclose(fp);
+    gtk_container_add(GTK_CONTAINER(scrolli_history),text_view_history);
+    gtk_container_add(GTK_CONTAINER(window),scrolli_history);
+    g_signal_connect(G_OBJECT(window), "destroy", G_CALLBACK(empty), NULL);
+    gtk_widget_show_all(window);
+   // destroy 
+
+
+}
+
+/*发送聊天消息*/
+void send_entry_single(GtkWidget *w, void *entry)
+{
+    const char *a,*b;
+    message *m;
+    m = (message *)malloc(lenMessage);
+    memset(m, 0, lenMessage);
+    a = gtk_entry_get_text(entry);
+    b = gtk_entry_get_text(GTK_ENTRY(entry_add));
+    strcpy(m -> text, a);
+    m -> text[strlen(m -> text)] = '\0';
+    printf("send:%s\n",m -> text);
+    strcpy(m ->name,username);
+    strcpy(m -> time,b);
+    m -> name[strlen(m -> name)] = '\0';
+    write(socket_fd, m, lenMessage);
+    free(m);
+    gtk_entry_set_text(GTK_ENTRY(entry), "");
+    return;
+}
+
 
 void *recv_single(void *arg)
 {
     char *one1;
     message *m;
-    GtkTextIter start1,end1;
+    GtkTextIter start1,end1,start3,end3;
+    single_people_buffer= gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view_right_single));
+    gtk_text_buffer_get_bounds(GTK_TEXT_BUFFER(single_people_buffer),&start3,&end3);
     text_buffer_single = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view_left_single));
     gtk_text_buffer_get_bounds(GTK_TEXT_BUFFER(text_buffer_single),&start1,&end1);
     m = (message *)malloc(lenMessage);
     one1 = (char *)malloc(500);
-    while(1){
+    while(ks){
         memset(m, 0, lenMessage);
         memset(one1, 0, 500);
         recv(socket_fd, m, lenMessage,0);
+        if(strcmp(m -> time, "fresh") == 0){
+            sprintf(one1,"%s\n%s\n\n","当前在线好友：",m -> text);
+            gtk_text_buffer_insert(GTK_TEXT_BUFFER(single_people_buffer),&end3,one1,strlen(one1));
+            continue;
+        }
         sprintf(one1,"%s\n%s: %s\n",m -> time, m-> name,m -> text);
         gtk_text_buffer_insert(GTK_TEXT_BUFFER(text_buffer_single),&end1,one1,strlen(one1));
     }
@@ -869,6 +1184,7 @@ int  go(void)
     passwd = gtk_entry_get_text(GTK_ENTRY(entry_password));
     p = (userClient *)malloc(lenUserClient);
     strcpy(p -> name, name);
+    strcpy(myName, name);
     strcpy(p -> passwd,passwd);
     p -> flag = SIGNIN;
 
@@ -905,7 +1221,7 @@ int  go(void)
                 read(socket_fd, serverFlag,20);
                 printf("****%s*****\n",serverFlag);
                      if(strcmp(serverFlag,"success") == 0){
-                         strcpy(username,"kang");
+                         strcpy(username,myName);
                          break;
                      }
                      return 0;
